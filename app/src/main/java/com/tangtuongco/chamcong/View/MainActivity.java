@@ -5,6 +5,8 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.support.annotation.NonNull;
 import android.support.design.widget.BottomNavigationView;
 import android.support.v4.app.Fragment;
@@ -23,6 +25,8 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.tangtuongco.chamcong.Adapter.AdapterMain;
+import com.tangtuongco.chamcong.Adapter.AdapterViewPagerTrangChu;
 import com.tangtuongco.chamcong.Model.NhanVien;
 import com.tangtuongco.chamcong.R;
 import com.tangtuongco.chamcong.Service.StartService;
@@ -31,15 +35,17 @@ import com.tangtuongco.chamcong.View.Fragments.CaNhan;
 import com.tangtuongco.chamcong.View.Fragments.TheoDoiF;
 import com.tangtuongco.chamcong.View.Fragments.TrangChuF;
 
+import java.util.ArrayList;
+import java.util.Collections;
 
-public class MainActivity extends AppCompatActivity implements ViewPager.OnPageChangeListener  {
+
+public class MainActivity extends AppCompatActivity implements ViewPager.OnPageChangeListener {
     Toolbar toolbar;
     BottomNavigationView navigation;
     FrameLayout frameLayout;
     TrangChuF trangChuF;
     TheoDoiF theoDoiF;
     CaNhan canhan;
-    ViewPager viewPager;
     BanBeF banBeF;
     Boolean aIsActive, bIsActive, cIsActive, dIsActive;
     Intent service;
@@ -48,38 +54,40 @@ public class MainActivity extends AppCompatActivity implements ViewPager.OnPageC
     FirebaseAuth mAuth;
     NhanVien currentUser;
 
+    ViewPager viewPager;
+    AdapterMain adapter;
+    ArrayList<Fragment> fragmentArrayList;
+    ArrayList<String> titleArrayList;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         anhxa();
         //get Data
-        mAuth=FirebaseAuth.getInstance();
-        firebaseDatabase=FirebaseDatabase.getInstance();
-        currentUser=new NhanVien();
+        mAuth = FirebaseAuth.getInstance();
+        firebaseDatabase = FirebaseDatabase.getInstance();
+        currentUser = new NhanVien();
         getcurrentuser();
 
 
         xuly();
 
 
-
     }
 
     private void getcurrentuser() {
 
-        final String uid= mAuth.getCurrentUser().getEmail();
+        final String uid = mAuth.getCurrentUser().getEmail();
 
-        mData=firebaseDatabase.getReference().child("NhanVien");
+        mData = firebaseDatabase.getReference().child("NhanVien");
         mData.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                for(DataSnapshot ds:dataSnapshot.getChildren())
-                {
+                for (DataSnapshot ds : dataSnapshot.getChildren()) {
                     NhanVien a = ds.getValue(NhanVien.class);
-                    if(a.getEmail().equals(uid) && a.getChucvu().equals("QL") )
-                    {
-                        service=new Intent(getApplicationContext(), StartService.class);
+                    if (a.getEmail().equals(uid) && a.getChucvu().equals("QL")) {
+                        service = new Intent(getApplicationContext(), StartService.class);
                         startService(service);
                     }
 
@@ -94,22 +102,21 @@ public class MainActivity extends AppCompatActivity implements ViewPager.OnPageC
     }
 
 
-
     @Override
     public void onBackPressed() {
         showAlertDialog();
 
 
     }
-    public void showAlertDialog(){
+
+    public void showAlertDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Xác nhận");
         builder.setMessage("Bạn có muốn đăng xuất không??");
         builder.setPositiveButton("Có", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                if(isMyServiceRunning(StartService.class))
-                {
+                if (isMyServiceRunning(StartService.class)) {
                     stopService(service);
                 }
                 FirebaseAuth.getInstance().signOut();
@@ -128,8 +135,8 @@ public class MainActivity extends AppCompatActivity implements ViewPager.OnPageC
         alert.show();
 
 
-
     }
+
     private boolean isMyServiceRunning(Class<?> serviceClass) {
         ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
         for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
@@ -141,74 +148,109 @@ public class MainActivity extends AppCompatActivity implements ViewPager.OnPageC
     }
 
     private void xuly() {
-
+        fragmentArrayList = new ArrayList<>();
+        titleArrayList = new ArrayList<>();
 
         trangChuF = new TrangChuF();
         theoDoiF = new TheoDoiF();
         canhan = new CaNhan();
-
         banBeF = new BanBeF();
-        setFragment(trangChuF);
-        aIsActive = bIsActive = cIsActive = dIsActive = false;
 
+        fragmentArrayList.add(trangChuF);
+        fragmentArrayList.add(banBeF);
+        fragmentArrayList.add(canhan);
 
+        adapter = new AdapterMain(getSupportFragmentManager(), fragmentArrayList, titleArrayList);
+        viewPager.setAdapter(adapter);
         navigation.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
             @Override
             public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-
-
                 switch (item.getItemId()) {
                     case R.id.navigation_trangchu:
-                        setFragment(trangChuF);
-
-
-                        return true;
+                        viewPager.setCurrentItem(0);
+                        break;
                     case R.id.navigation_tinnhan:
-                        setFragment(banBeF);
-
-
-                        return true;
+                        viewPager.setCurrentItem(1);
+                        break;
                     case R.id.navigation_theodoi:
-                        setFragment(theoDoiF);
-
-
-                        return true;
+                        viewPager.setCurrentItem(2);
+                        break;
                     case R.id.navigation_canhan:
-                        setFragment(canhan);
-
-
-                        return true;
-                                  }
+                        viewPager.setCurrentItem(3);
+                        break;
+                    default:
+                        viewPager.setCurrentItem(0);
+                        break;
+                }
 
                 return true;
-
             }
         });
 
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                fragmentArrayList.add(theoDoiF);
+                Collections.swap(fragmentArrayList,2,3);
+                adapter.notifyDataSetChanged();
+            }
+        }, 500);
 
+//        setFragment(trangChuF);
+//        aIsActive = bIsActive = cIsActive = dIsActive = false;
+
+
+//        navigation.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
+//            @Override
+//            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+//
+//
+//                switch (item.getItemId()) {
+//                    case R.id.navigation_trangchu:
+//                        setFragment(trangChuF);
+//
+//
+//                        return true;
+//                    case R.id.navigation_tinnhan:
+//                        setFragment(banBeF);
+//
+//
+//                        return true;
+//                    case R.id.navigation_theodoi:
+//                        setFragment(theoDoiF);
+//
+//
+//                        return true;
+//                    case R.id.navigation_canhan:
+//                        setFragment(canhan);
+//
+//
+//                        return true;
+//                                  }
+//
+//                return true;
+//
+//            }
+//        });
     }
 
 
-    private void setFragment(Fragment fragment) {
-        FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
-        fragmentTransaction.replace(R.id.frame_container, fragment);
-        fragmentTransaction.commit();
-    }
+//    private void setFragment(Fragment fragment) {
+//        FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
+//        fragmentTransaction.replace(R.id.frame_container, fragment);
+//        fragmentTransaction.commit();
+//    }
 
 
     private void anhxa() {
-//
         navigation = findViewById(R.id.navigation);
-        frameLayout = findViewById(R.id.frame_container);
-        viewPager = findViewById(R.id.viewpager);
-
-
+//        frameLayout = findViewById(R.id.frame_container);
+        viewPager = findViewById(R.id.viewPager);
     }
 
 
     @Override
     public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
-
     }
 
     @Override
